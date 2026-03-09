@@ -16,8 +16,11 @@ This is a Full-Stack Data Science application designed to analyze and predict cr
 ​DevOps: GitHub & Streamlit Community Cloud
 # project structure
 ├── app.py              # Main Streamlit application & ML Logic
+
 ├── fintech_risk.db     # SQLite Database with 1,000+ credit records
+
 ├── requirements.txt    # Project dependencies
+
 └── README.md           # Documentation
 
 # Run the app
