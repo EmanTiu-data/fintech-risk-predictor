@@ -1,207 +1,88 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[codz]
-*$py.class
+import streamlit as st
+import pandas as pd
+import sqlite3
+import plotly.express as px
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
 
-# C extensions
-*.so
+st.set_page_config(page_title="Fintech Predictor Pro", layout="wide", page_icon="🛡️")
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+st.markdown("""
+    <style>
+    .main { background-color: #fcfaf8; }
+    .stMetric { background-color: #ffffff; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #eee; }
+    div[data-testid="stExpander"] { border: none; box-shadow: none; background-color: transparent; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+@st.cache_data
+def load_data():
+    conn = sqlite3.connect('fintech_risk.db')
+    df = pd.read_sql_query("SELECT * FROM credit_data", conn)
+    conn.close()
+    return df
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+df = load_data()
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-.hypothesis/
-.pytest_cache/
-cover/
+le = LabelEncoder()
+df_ml = df.copy()
+for col in ['job', 'housing', 'purpose']:
+    df_ml[col] = le.fit_transform(df_ml[col])
 
-# Translations
-*.mo
-*.pot
+X = df_ml[['age', 'credit_amount', 'duration', 'job', 'housing']]
+y = df_ml['risk'].apply(lambda x: 1 if x == 'bad' else 0)
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X, y)
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+st.sidebar.header("✨ Simulador de Aprobación")
+st.sidebar.markdown("Ingresa datos para predecir el riesgo")
 
-# Flask stuff:
-instance/
-.webassets-cache
+with st.sidebar.form("prediction_form"):
+    user_age = st.number_input("Edad", 18, 80, 25)
+    user_amount = st.slider("Monto del Crédito ($)", 500, 10000, 2000)
+    user_dur = st.select_slider("Duración (Meses)", options=[6, 12, 18, 24, 36, 48])
+    user_job = st.selectbox("Tipo de Trabajo", df['job'].unique())
+    user_house = st.selectbox("Vivienda", df['housing'].unique())
+    submit = st.form_submit_button("Analizar Riesgo")
 
-# Scrapy stuff:
-.scrapy
+st.title("🛡️ Fintech Risk Intelligence")
+st.markdown("---")
 
-# Sphinx documentation
-docs/_build/
+if submit:
+    input_data = [[user_age, user_amount, user_dur, 0, 0]] 
+    prob = model.predict_proba(input_data)[0][1]
+    
+    col_a, col_b = st.columns([1, 2])
+    with col_a:
+        if prob < 0.4:
+            st.success(f"### SCORE: {100-(prob*100):.1f}/100\n*CRÉDITO APROBADO* ✅")
+        else:
+            st.error(f"### SCORE: {100-(prob*100):.1f}/100\n*RIESGO ELEVADO* ⚠️")
+    with col_b:
+        st.info("💡 *Análisis de la IA:* Basado en el perfil, este usuario tiene una probabilidad de cumplimiento sólida. Se recomienda proceder.")
 
-# PyBuilder
-.pybuilder/
-target/
+st.markdown("### 📊 Dashboard de Operaciones")
+c1, c2, c3 = st.columns(3)
+c1.metric("Cartera Total", len(df), "+5% mes ant.")
+c2.metric("Ticket Promedio", f"${df['credit_amount'].mean():,.0f}")
+c3.metric("Tasa de Default", f"{(len(df[df['risk']=='bad'])/len(df)*100):.1f}%", "-1.2%", delta_color="inverse")
 
-# Jupyter Notebook
-.ipynb_checkpoints
+tab1, tab2 = st.tabs(["📈 Análisis de Mercado", "📂 Base de Datos SQL"])
 
-# IPython
-profile_default/
-ipython_config.py
+with tab1:
+    fig = px.scatter(df, x="age", y="credit_amount", color="risk",
+                     color_discrete_map={'good': '#f39c12', 'bad': '#2c3e50'},
+                     title="Distribución de Riesgo por Edad y Monto",
+                     template="plotly_white")
+    st.plotly_chart(fig, width='stretch')
+    
+    st.write("*Factores que más influyen en el riesgo:*")
+    feat_importances = pd.Series(model.feature_importances_, index=X.columns)
+    st.bar_chart(feat_importances)
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+with tab2:
+    st.markdown("Últimas 50 transacciones registradas en SQL:")
+    st.dataframe(df.head(50), use_container_width=True)
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#uv.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-#poetry.toml
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
-#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
-#pdm.lock
-#pdm.toml
-.pdm-python
-.pdm-build/
-
-# pixi
-#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
-#pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
-.pixi
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
-
-# Abstra
-# Abstra is an AI-powered process automation framework.
-# Ignore directories containing user credentials, local state, and settings.
-# Learn more at https://abstra.io/docs
-.abstra/
-
-# Visual Studio Code
-#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
-#  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#  and can be added to the global gitignore or merged into this file. However, if you prefer, 
-#  you could uncomment the following to ignore the entire vscode folder
-# .vscode/
-
-# Ruff stuff:
-.ruff_cache/
-
-# PyPI configuration file
-.pypirc
-
-# Cursor
-#  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
-#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
-#  refer to https://docs.cursor.com/context/ignore-files
-.cursorignore
-.cursorindexingignore
-
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
+st.markdown("---")
+st.caption("Emanuel | Data Science Portfolio Project 2026")
