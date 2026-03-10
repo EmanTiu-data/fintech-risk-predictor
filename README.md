@@ -27,7 +27,7 @@ This is a Full-Stack Data Science application designed to analyze and predict cr
 
 # Install & Usage
 1. The repository:
-   git clone https://github.com/tu-usuario/fintech-risk-predictor.git
+   git clone https://github.com/EmanTiu-data/fintech-risk-predictor.git
 2. Install dependencias:
    pip install -r requirements.txt
 3. Run the app:
